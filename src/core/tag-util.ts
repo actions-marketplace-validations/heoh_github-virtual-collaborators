@@ -1,22 +1,26 @@
 import { TagStore } from "./tag-store";
 
-export async function updateTagStoreByIssue(
+export async function updateTagStoreByContent(
   tagStore: TagStore,
   issueNumber: number,
   title: string,
   body: string,
-): Promise<void> {
+  isComment = false,
+): Promise<{ author: string | null }> {
   // Process Headers
   let author: string | null = null;
   const headerRegex = /^(?:\s*\n)?######\s+Authored\s+by\s+@#([\w-]+)/;
   const headerMatch = body.match(headerRegex);
   if (headerMatch) {
     author = headerMatch[1];
-    tagStore.removeTypes(issueNumber, ["author"]);
-    tagStore.addTags(issueNumber, [
-      `author:${author}`,
-      `participant:${author}`,
-    ]);
+    if (!isComment) {
+      // For issue bodies, set the author tag based on the header.
+      tagStore.removeTypes(issueNumber, ["author"]);
+      tagStore.addTags(issueNumber, [
+        `author:${author}`,
+        `participant:${author}`,
+      ]);
+    }
   }
 
   // Process Commands
@@ -38,6 +42,8 @@ export async function updateTagStoreByIssue(
       `participant:${mentionedName}`,
     ]);
   }
+
+  return { author };
 }
 
 async function processCommand(

@@ -3,7 +3,7 @@ import {
   extractTagByType,
   extractTagsByType,
   isNotifiableTags,
-  updateTagStoreByIssue,
+  updateTagStoreByContent,
 } from "../core/tag-util";
 import { getContext } from "../context";
 import { getTagStore, getNotifier } from "./shared";
@@ -25,19 +25,22 @@ export async function handleIssueComment(): Promise<void> {
     return;
   }
 
-  core.info(`handleIssueComment: action=${action}, issue=#${issue.number}, comment=${comment.id}`);
+  core.info(
+    `handleIssueComment: action=${action}, issue=#${issue.number}, comment=${comment.id}`,
+  );
 
   const tagStore = getTagStore();
 
-  let isAuthoringAction = false;
+  let author: string | null = null;
   if (action === "created" || action === "edited") {
-    isAuthoringAction = true;
-    await updateTagStoreByIssue(
+    const result = await updateTagStoreByContent(
       tagStore,
       issue.number,
-      issue.title,
-      issue.body || "",
+      "",
+      comment.body ?? "",
+      true,
     );
+    author = result.author;
     await tagStore.commit();
   }
 
@@ -45,10 +48,9 @@ export async function handleIssueComment(): Promise<void> {
   if (isNotifiableTags(tags)) {
     const watchers = extractTagsByType(tags, "watcher");
     const notifier = getNotifier(tagStore);
-    const author = extractTagByType(tags, "author");
     for (const watcher of watchers) {
       // Skip notifying the authoring user to avoid redundant notifications.
-      if (isAuthoringAction && watcher === author) {
+      if (watcher === author) {
         continue;
       }
       await notifier.notify(watcher, {
