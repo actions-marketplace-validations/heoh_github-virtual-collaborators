@@ -70,7 +70,7 @@ export class IssueNotificationProvider implements NotificationProvider {
   private buildNotificationBody(payload: NotificationPayload): string {
     let body = "";
     for (const [key, value] of Object.entries(payload)) {
-      body += `**${key}**: ${value}\n`;
+      body += `* **${key}**: ${value}\n`;
     }
     return body;
   }
