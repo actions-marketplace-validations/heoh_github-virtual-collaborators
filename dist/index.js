@@ -30002,8 +30002,9 @@ function getOctokit() {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.updateTagStoreByContent = updateTagStoreByContent;
 exports.isNotifiableTags = isNotifiableTags;
-exports.extractTagsByType = extractTagsByType;
-exports.extractTagByType = extractTagByType;
+exports.getWatchingVCNames = getWatchingVCNames;
+exports.extractValuesByType = extractValuesByType;
+exports.extractValueByType = extractValueByType;
 async function updateTagStoreByContent(tagStore, issueNumber, title, body, isComment = false) {
     // Process Headers
     let author = null;
@@ -30029,16 +30030,17 @@ async function updateTagStoreByContent(tagStore, issueNumber, title, body, isCom
         await processCommand(tagStore, issueNumber, command, args, author);
     }
     // Process Mentions
+    let mentions = [];
     const mentionRegex = /@#([\w-]+)/g;
     let mentionMatch;
     while ((mentionMatch = mentionRegex.exec(body)) !== null) {
         const mentionedName = mentionMatch[1];
         tagStore.addTags(issueNumber, [
-            `watcher:${mentionedName}`,
             `participant:${mentionedName}`,
         ]);
+        mentions.push(mentionedName);
     }
-    return { author };
+    return { author, mentions };
 }
 async function processCommand(tagStore, issueNumber, command, args, author) {
     if (command === "assign") {
@@ -30060,22 +30062,27 @@ async function processCommand(tagStore, issueNumber, command, args, author) {
     }
     else if (command === "watch") {
         if (author) {
-            tagStore.addTags(issueNumber, [
-                `watcher:${author}`,
-                `participant:${author}`,
-            ]);
+            tagStore.addTags(issueNumber, [`watcher:${author}`]);
         }
     }
     else if (command === "unwatch") {
         if (author) {
             tagStore.removeTags(issueNumber, [`watcher:${author}`]);
+            tagStore.addTags(issueNumber, [`unwatcher:${author}`]);
         }
     }
 }
 function isNotifiableTags(tags) {
     return !tags.includes("system:quiet");
 }
-function extractTagsByType(tags, type) {
+function getWatchingVCNames(tags) {
+    let watchers = new Set();
+    extractValuesByType(tags, "participant").forEach((vc) => watchers.add(vc));
+    extractValuesByType(tags, "watcher").forEach((vc) => watchers.add(vc));
+    extractValuesByType(tags, "unwatcher").forEach((vc) => watchers.delete(vc));
+    return Array.from(watchers).sort();
+}
+function extractValuesByType(tags, type) {
     const result = [];
     for (const tag of tags) {
         if (tag.startsWith(`${type}:`)) {
@@ -30084,8 +30091,8 @@ function extractTagsByType(tags, type) {
     }
     return result;
 }
-function extractTagByType(tags, type) {
-    const result = extractTagsByType(tags, type);
+function extractValueByType(tags, type) {
+    const result = extractValuesByType(tags, type);
     return result.length > 0 ? result[0] : null;
 }
 
@@ -30582,25 +30589,32 @@ async function handleIssueComment() {
     core.info(`handleIssueComment: action=${action}, issue=#${issue.number}, comment=${comment.id}`);
     const tagStore = (0, shared_1.getTagStore)();
     let author = null;
+    let mentions = [];
     if (action === "created" || action === "edited") {
         const result = await (0, tag_util_1.updateTagStoreByContent)(tagStore, issue.number, "", comment.body ?? "", true);
         author = result.author;
+        mentions = result.mentions;
         await tagStore.commit();
     }
     const tags = await tagStore.getTags(issue.number);
     if ((0, tag_util_1.isNotifiableTags)(tags)) {
-        const watchers = (0, tag_util_1.extractTagsByType)(tags, "watcher");
+        const assignee = (0, tag_util_1.extractValueByType)(tags, "assignee");
+        const watchers = (0, tag_util_1.getWatchingVCNames)(tags);
         const notifier = (0, shared_1.getNotifier)(tagStore);
         for (const watcher of watchers) {
             // Skip notifying the authoring user to avoid redundant notifications.
             if (watcher === author) {
                 continue;
             }
-            await notifier.notify(watcher, {
-                event: `\`comment_${action}\``,
-                issue: `\`#${issue.number}\`  ${issue.title}`,
-                comment_id: comment.id,
-            });
+            const payload = {};
+            payload['event'] = `\`comment_${action}\``;
+            payload['issue'] = `\`#${issue.number}\`  ${issue.title}`;
+            payload['comment_id'] = comment.id;
+            if (mentions.includes(watcher))
+                payload["mention"] = true;
+            if (watcher === assignee)
+                payload["assignee"] = true;
+            await notifier.notify(watcher, payload);
         }
     }
 }
@@ -30666,24 +30680,31 @@ async function handleIssues() {
     core.info(`handleIssues: action=${action}, issue=#${issue.number}`);
     const tagStore = (0, shared_1.getTagStore)();
     let author = null;
+    let mentions = [];
     if (action === "opened" || action === "edited") {
         const result = await (0, tag_util_1.updateTagStoreByContent)(tagStore, issue.number, issue.title, issue.body ?? "");
         author = result.author;
+        mentions = result.mentions;
         await tagStore.commit();
     }
     const tags = await tagStore.getTags(issue.number);
     if ((0, tag_util_1.isNotifiableTags)(tags)) {
-        const watchers = (0, tag_util_1.extractTagsByType)(tags, "watcher");
+        const assignee = (0, tag_util_1.extractValueByType)(tags, "assignee");
+        const watchers = (0, tag_util_1.getWatchingVCNames)(tags);
         const notifier = (0, shared_1.getNotifier)(tagStore);
         for (const watcher of watchers) {
             // Skip notifying the authoring user to avoid redundant notifications.
             if (watcher === author) {
                 continue;
             }
-            await notifier.notify(watcher, {
-                event: `\`issue_${action}\``,
-                issue: `\`#${issue.number}\`  ${issue.title}`,
-            });
+            const payload = {};
+            payload["event"] = `\`issue_${action}\``;
+            payload["issue"] = `\`#${issue.number}\`  ${issue.title}`;
+            if (mentions.includes(watcher))
+                payload["mention"] = true;
+            if (watcher === assignee)
+                payload["assignee"] = true;
+            await notifier.notify(watcher, payload);
         }
     }
 }
