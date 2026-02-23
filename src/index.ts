@@ -1,12 +1,17 @@
 import * as core from "@actions/core";
 import { getContext } from "./context";
 import { handleIssues } from "./handlers/issues";
+import { handleIssueComment } from "./handlers/issue-comment";
 
 async function run(): Promise<void> {
   const ctx = getContext();
   switch (ctx.eventName) {
     case "issues":
       await handleIssues();
+      break;
+
+    case "issue_comment":
+      await handleIssueComment();
       break;
 
     default:
