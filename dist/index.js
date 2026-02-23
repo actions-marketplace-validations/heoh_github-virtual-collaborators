@@ -30007,7 +30007,7 @@ exports.extractTagByType = extractTagByType;
 async function updateTagStoreByContent(tagStore, issueNumber, title, body, isComment = false) {
     // Process Headers
     let author = null;
-    const headerRegex = /^(?:\s*\n)?######\s+Authored\s+by\s+@#([\w-]+)/;
+    const headerRegex = /^(?:\s*\n)?######\s+authored\s+by\s+@#([\w-]+)/i;
     const headerMatch = body.match(headerRegex);
     if (headerMatch) {
         author = headerMatch[1];
