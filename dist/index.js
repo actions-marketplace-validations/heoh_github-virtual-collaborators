@@ -30528,6 +30528,114 @@ exports.ProjectMetadataStore = ProjectMetadataStore;
 
 /***/ }),
 
+/***/ 5389:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.handleCheckRun = handleCheckRun;
+const core = __importStar(__nccwpck_require__(7484));
+const context_1 = __nccwpck_require__(788);
+const client_1 = __nccwpck_require__(6584);
+const shared_1 = __nccwpck_require__(8512);
+const tag_util_1 = __nccwpck_require__(4492);
+async function handleCheckRun() {
+    const ctx = (0, context_1.getContext)();
+    const octokit = (0, context_1.getOctokit)();
+    const { action, check_run: checkRun } = ctx.payload;
+    if (!action) {
+        core.warning("check_run: missing action");
+        return;
+    }
+    if (!checkRun) {
+        core.warning("check_run: missing check_run");
+        return;
+    }
+    if (action !== "completed") {
+        core.info(`handleCheckRun: action=${action} is not actionable, skipping`);
+        return;
+    }
+    const conclusion = checkRun.conclusion ?? "";
+    if (conclusion !== "failure" && conclusion !== "action_required") {
+        core.info(`handleCheckRun: conclusion=${conclusion} is not actionable, skipping`);
+        return;
+    }
+    const { owner, repo } = ctx.repo;
+    const headSha = checkRun.head_sha;
+    const prNumber = await (0, client_1.getPRNumberForCheckRun)(octokit, owner, repo, headSha);
+    if (prNumber === null) {
+        core.info(`handleCheckRun: no PR associated with sha ${headSha}, skipping`);
+        return;
+    }
+    const { data: pr } = await octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: prNumber,
+    });
+    core.info(`handleCheckRun: action=${action}, conclusion=${conclusion}, pr=#${pr.number}`);
+    const tagStore = (0, shared_1.getTagStore)();
+    const tags = await tagStore.getTags(pr.number);
+    if (!(0, tag_util_1.isNotifiableTags)(tags)) {
+        return;
+    }
+    const assignee = (0, tag_util_1.extractValueByType)(tags, "assignee");
+    const watchers = (0, tag_util_1.getWatchingVCNames)(tags);
+    if (watchers.length === 0) {
+        core.info("handleCheckRun: no watchers, skipping notification");
+        return;
+    }
+    const notifier = (0, shared_1.getNotifier)(tagStore);
+    for (const watcher of watchers) {
+        const payload = {};
+        payload["event"] =
+            conclusion === "failure" ? "`check_failed`" : "`check_action_required`";
+        payload["pr"] = `\`#${pr.number}\`  ${pr.title}`;
+        payload["check"] = checkRun.name;
+        if (checkRun.details_url)
+            payload["details_url"] = checkRun.details_url;
+        if (watcher === assignee)
+            payload["assignee"] = true;
+        await notifier.notify(watcher, payload);
+    }
+}
+
+
+/***/ }),
+
 /***/ 7250:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -30886,12 +30994,16 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const context_1 = __nccwpck_require__(788);
+const check_run_1 = __nccwpck_require__(5389);
 const issues_1 = __nccwpck_require__(8037);
 const issue_comment_1 = __nccwpck_require__(7250);
 const pull_request_1 = __nccwpck_require__(9998);
 async function run() {
     const ctx = (0, context_1.getContext)();
     switch (ctx.eventName) {
+        case "check_run":
+            await (0, check_run_1.handleCheckRun)();
+            break;
         case "issues":
             await (0, issues_1.handleIssues)();
             break;

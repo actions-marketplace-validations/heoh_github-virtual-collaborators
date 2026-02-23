@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
 import { getContext } from "./context";
+import { handleCheckRun } from "./handlers/check-run";
 import { handleIssues } from "./handlers/issues";
 import { handleIssueComment } from "./handlers/issue-comment";
 import { handlePullRequest } from "./handlers/pull-request";
@@ -7,6 +8,10 @@ import { handlePullRequest } from "./handlers/pull-request";
 async function run(): Promise<void> {
   const ctx = getContext();
   switch (ctx.eventName) {
+    case "check_run":
+      await handleCheckRun();
+      break;
+
     case "issues":
       await handleIssues();
       break;
