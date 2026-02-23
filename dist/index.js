@@ -30000,22 +30000,25 @@ function getOctokit() {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.updateTagStoreByIssue = updateTagStoreByIssue;
+exports.updateTagStoreByContent = updateTagStoreByContent;
 exports.isNotifiableTags = isNotifiableTags;
 exports.extractTagsByType = extractTagsByType;
 exports.extractTagByType = extractTagByType;
-async function updateTagStoreByIssue(tagStore, issueNumber, title, body) {
+async function updateTagStoreByContent(tagStore, issueNumber, title, body, isComment = false) {
     // Process Headers
     let author = null;
     const headerRegex = /^(?:\s*\n)?######\s+Authored\s+by\s+@#([\w-]+)/;
     const headerMatch = body.match(headerRegex);
     if (headerMatch) {
         author = headerMatch[1];
-        tagStore.removeTypes(issueNumber, ["author"]);
-        tagStore.addTags(issueNumber, [
-            `author:${author}`,
-            `participant:${author}`,
-        ]);
+        if (!isComment) {
+            // For issue bodies, set the author tag based on the header.
+            tagStore.removeTypes(issueNumber, ["author"]);
+            tagStore.addTags(issueNumber, [
+                `author:${author}`,
+                `participant:${author}`,
+            ]);
+        }
     }
     // Process Commands
     const commandRegex = /^\/(\w+)(?:\s.*)?$/gm;
@@ -30035,6 +30038,7 @@ async function updateTagStoreByIssue(tagStore, issueNumber, title, body) {
             `participant:${mentionedName}`,
         ]);
     }
+    return { author };
 }
 async function processCommand(tagStore, issueNumber, command, args, author) {
     if (command === "assign") {
@@ -30577,20 +30581,19 @@ async function handleIssueComment() {
     }
     core.info(`handleIssueComment: action=${action}, issue=#${issue.number}, comment=${comment.id}`);
     const tagStore = (0, shared_1.getTagStore)();
-    let isAuthoringAction = false;
+    let author = null;
     if (action === "created" || action === "edited") {
-        isAuthoringAction = true;
-        await (0, tag_util_1.updateTagStoreByIssue)(tagStore, issue.number, issue.title, issue.body || "");
+        const result = await (0, tag_util_1.updateTagStoreByContent)(tagStore, issue.number, "", comment.body ?? "", true);
+        author = result.author;
         await tagStore.commit();
     }
     const tags = await tagStore.getTags(issue.number);
     if ((0, tag_util_1.isNotifiableTags)(tags)) {
         const watchers = (0, tag_util_1.extractTagsByType)(tags, "watcher");
         const notifier = (0, shared_1.getNotifier)(tagStore);
-        const author = (0, tag_util_1.extractTagByType)(tags, "author");
         for (const watcher of watchers) {
             // Skip notifying the authoring user to avoid redundant notifications.
-            if (isAuthoringAction && watcher === author) {
+            if (watcher === author) {
                 continue;
             }
             await notifier.notify(watcher, {
@@ -30662,20 +30665,19 @@ async function handleIssues() {
     }
     core.info(`handleIssues: action=${action}, issue=#${issue.number}`);
     const tagStore = (0, shared_1.getTagStore)();
-    let isAuthoringAction = false;
+    let author = null;
     if (action === "opened" || action === "edited") {
-        isAuthoringAction = true;
-        await (0, tag_util_1.updateTagStoreByIssue)(tagStore, issue.number, issue.title, issue.body || "");
+        const result = await (0, tag_util_1.updateTagStoreByContent)(tagStore, issue.number, issue.title, issue.body ?? "");
+        author = result.author;
         await tagStore.commit();
     }
     const tags = await tagStore.getTags(issue.number);
     if ((0, tag_util_1.isNotifiableTags)(tags)) {
         const watchers = (0, tag_util_1.extractTagsByType)(tags, "watcher");
         const notifier = (0, shared_1.getNotifier)(tagStore);
-        const author = (0, tag_util_1.extractTagByType)(tags, "author");
         for (const watcher of watchers) {
             // Skip notifying the authoring user to avoid redundant notifications.
-            if (isAuthoringAction && watcher === author) {
+            if (watcher === author) {
                 continue;
             }
             await notifier.notify(watcher, {
