@@ -6,7 +6,7 @@ export async function updateTagStoreByContent(
   title: string,
   body: string,
   isComment = false,
-): Promise<{ author: string | null }> {
+): Promise<{ author: string | null; mentions: string[] }> {
   // Process Headers
   let author: string | null = null;
   const headerRegex = /^(?:\s*\n)?######\s+authored\s+by\s+@#([\w-]+)/i;
@@ -33,17 +33,18 @@ export async function updateTagStoreByContent(
   }
 
   // Process Mentions
+  let mentions: string[] = [];
   const mentionRegex = /@#([\w-]+)/g;
   let mentionMatch;
   while ((mentionMatch = mentionRegex.exec(body)) !== null) {
     const mentionedName = mentionMatch[1];
     tagStore.addTags(issueNumber, [
-      `watcher:${mentionedName}`,
       `participant:${mentionedName}`,
     ]);
+    mentions.push(mentionedName);
   }
 
-  return { author };
+  return { author, mentions };
 }
 
 async function processCommand(
@@ -70,14 +71,12 @@ async function processCommand(
     tagStore.removeTypes(issueNumber, ["assignee"]);
   } else if (command === "watch") {
     if (author) {
-      tagStore.addTags(issueNumber, [
-        `watcher:${author}`,
-        `participant:${author}`,
-      ]);
+      tagStore.addTags(issueNumber, [`watcher:${author}`]);
     }
   } else if (command === "unwatch") {
     if (author) {
       tagStore.removeTags(issueNumber, [`watcher:${author}`]);
+      tagStore.addTags(issueNumber, [`unwatcher:${author}`]);
     }
   }
 }
@@ -86,7 +85,17 @@ export function isNotifiableTags(tags: string[]): boolean {
   return !tags.includes("system:quiet");
 }
 
-export function extractTagsByType(tags: string[], type: string): string[] {
+export function getWatchingVCNames(tags: string[]): string[] {
+  let watchers = new Set<string>();
+
+  extractValuesByType(tags, "participant").forEach((vc) => watchers.add(vc));
+  extractValuesByType(tags, "watcher").forEach((vc) => watchers.add(vc));
+  extractValuesByType(tags, "unwatcher").forEach((vc) => watchers.delete(vc));
+
+  return Array.from(watchers).sort();
+}
+
+export function extractValuesByType(tags: string[], type: string): string[] {
   const result: string[] = [];
   for (const tag of tags) {
     if (tag.startsWith(`${type}:`)) {
@@ -96,7 +105,7 @@ export function extractTagsByType(tags: string[], type: string): string[] {
   return result;
 }
 
-export function extractTagByType(tags: string[], type: string): string | null {
-  const result = extractTagsByType(tags, type);
+export function extractValueByType(tags: string[], type: string): string | null {
+  const result = extractValuesByType(tags, type);
   return result.length > 0 ? result[0] : null;
 }

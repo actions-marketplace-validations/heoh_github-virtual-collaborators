@@ -1,12 +1,13 @@
 import * as core from "@actions/core";
 import {
-  extractTagByType,
-  extractTagsByType,
   isNotifiableTags,
   updateTagStoreByContent,
+  getWatchingVCNames,
+  extractValueByType,
 } from "../core/tag-util";
 import { getContext } from "../context";
 import { getTagStore, getNotifier } from "./shared";
+import { NotificationPayload } from "../core/notification-provider";
 
 export async function handleIssueComment(): Promise<void> {
   const ctx = getContext();
@@ -32,6 +33,7 @@ export async function handleIssueComment(): Promise<void> {
   const tagStore = getTagStore();
 
   let author: string | null = null;
+  let mentions: string[] = [];
   if (action === "created" || action === "edited") {
     const result = await updateTagStoreByContent(
       tagStore,
@@ -41,23 +43,28 @@ export async function handleIssueComment(): Promise<void> {
       true,
     );
     author = result.author;
+    mentions = result.mentions;
     await tagStore.commit();
   }
 
   const tags = await tagStore.getTags(issue.number);
   if (isNotifiableTags(tags)) {
-    const watchers = extractTagsByType(tags, "watcher");
+    const assignee = extractValueByType(tags, "assignee");
+    const watchers = getWatchingVCNames(tags);
     const notifier = getNotifier(tagStore);
     for (const watcher of watchers) {
       // Skip notifying the authoring user to avoid redundant notifications.
       if (watcher === author) {
         continue;
       }
-      await notifier.notify(watcher, {
-        event: `\`comment_${action}\``,
-        issue: `\`#${issue.number}\`  ${issue.title}`,
-        comment_id: comment.id,
-      });
+
+      const payload: NotificationPayload = {};
+      payload['event'] = `\`comment_${action}\``;
+      payload['issue'] = `\`#${issue.number}\`  ${issue.title}`;
+      payload['comment_id'] = comment.id;
+      if (mentions.includes(watcher)) payload["mention"] = true;
+      if (watcher === assignee) payload["assignee"] = true;
+      await notifier.notify(watcher, payload);
     }
   }
 }
