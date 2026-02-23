@@ -1,0 +1,37 @@
+name: 'GitHub Virtual Collaborators'
+description: >
+  Manages virtual collaborators (VC) in a GitHub repository.
+  Detects @#name mentions and commands in issues/PRs/comments,
+  updates Project Tags metadata, and sends notifications via dedicated Issues.
+
+inputs:
+  github-token:
+    description: >
+      GitHub Personal Access Token with `repo` and `project` scopes.
+      The built-in GITHUB_TOKEN lacks Projects v2 write permission.
+    required: true
+
+  project-owner:
+    description: 'Organization or user name that owns the GitHub Project.'
+    required: true
+
+  project-number:
+    description: 'The number of the target GitHub Project (Projects v2).'
+    required: true
+
+  tags-field-name:
+    description: 'Name of the Text-type Custom Field in the Project used to store Tags.'
+    required: true
+    default: 'Tags'
+
+  virtual-collaborators:
+    description: >
+      Comma-separated list of allowed VC names (without @# prefix).
+      When specified, only these VCs are processed.
+      When omitted, all @#name patterns found are treated as VCs.
+    required: false
+    default: ''
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
