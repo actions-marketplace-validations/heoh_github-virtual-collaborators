@@ -9,7 +9,7 @@ export async function updateTagStoreByContent(
 ): Promise<{ author: string | null }> {
   // Process Headers
   let author: string | null = null;
-  const headerRegex = /^(?:\s*\n)?######\s+Authored\s+by\s+@#([\w-]+)/;
+  const headerRegex = /^(?:\s*\n)?######\s+authored\s+by\s+@#([\w-]+)/i;
   const headerMatch = body.match(headerRegex);
   if (headerMatch) {
     author = headerMatch[1];
