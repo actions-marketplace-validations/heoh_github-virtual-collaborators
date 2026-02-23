@@ -30002,7 +30002,8 @@ function getOctokit() {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.updateTagStoreByIssue = updateTagStoreByIssue;
 exports.isNotifiableTags = isNotifiableTags;
-exports.extractWatchers = extractWatchers;
+exports.extractTagsByType = extractTagsByType;
+exports.extractTagByType = extractTagByType;
 async function updateTagStoreByIssue(tagStore, issueNumber, title, body) {
     // Process Headers
     let author = null;
@@ -30070,14 +30071,18 @@ async function processCommand(tagStore, issueNumber, command, args, author) {
 function isNotifiableTags(tags) {
     return !tags.includes("system:quiet");
 }
-function extractWatchers(tags) {
-    const watchers = [];
+function extractTagsByType(tags, type) {
+    const result = [];
     for (const tag of tags) {
-        if (tag.startsWith("watcher:")) {
-            watchers.push(tag.substring("watcher:".length));
+        if (tag.startsWith(`${type}:`)) {
+            result.push(tag.substring(`${type}:`.length));
         }
     }
-    return watchers;
+    return result;
+}
+function extractTagByType(tags, type) {
+    const result = extractTagsByType(tags, type);
+    return result.length > 0 ? result[0] : null;
 }
 
 
@@ -30363,7 +30368,7 @@ class IssueNotificationProvider {
     buildNotificationBody(payload) {
         let body = "";
         for (const [key, value] of Object.entries(payload)) {
-            body += `**${key}**: ${value}\n`;
+            body += `* **${key}**: ${value}\n`;
         }
         return body;
     }
@@ -30511,6 +30516,95 @@ exports.ProjectMetadataStore = ProjectMetadataStore;
 
 /***/ }),
 
+/***/ 7250:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.handleIssueComment = handleIssueComment;
+const core = __importStar(__nccwpck_require__(7484));
+const tag_util_1 = __nccwpck_require__(4492);
+const context_1 = __nccwpck_require__(788);
+const shared_1 = __nccwpck_require__(8512);
+async function handleIssueComment() {
+    const ctx = (0, context_1.getContext)();
+    const { action, issue, comment } = ctx.payload;
+    if (!action) {
+        core.warning("issue_comment: missing action");
+        return;
+    }
+    if (!issue) {
+        core.warning("issue_comment: missing issue");
+        return;
+    }
+    if (!comment) {
+        core.warning("issue_comment: missing comment");
+        return;
+    }
+    core.info(`handleIssueComment: action=${action}, issue=#${issue.number}, comment=${comment.id}`);
+    const tagStore = (0, shared_1.getTagStore)();
+    let isAuthoringAction = false;
+    if (action === "created" || action === "edited") {
+        isAuthoringAction = true;
+        await (0, tag_util_1.updateTagStoreByIssue)(tagStore, issue.number, issue.title, issue.body || "");
+        await tagStore.commit();
+    }
+    const tags = await tagStore.getTags(issue.number);
+    if ((0, tag_util_1.isNotifiableTags)(tags)) {
+        const watchers = (0, tag_util_1.extractTagsByType)(tags, "watcher");
+        const notifier = (0, shared_1.getNotifier)(tagStore);
+        const author = (0, tag_util_1.extractTagByType)(tags, "author");
+        for (const watcher of watchers) {
+            // Skip notifying the authoring user to avoid redundant notifications.
+            if (isAuthoringAction && watcher === author) {
+                continue;
+            }
+            await notifier.notify(watcher, {
+                event: `comment_${action}`,
+                issue: `${issue.title}  (#${issue.number})`,
+                comment_id: comment.id,
+            });
+        }
+    }
+}
+
+
+/***/ }),
+
 /***/ 8037:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -30568,15 +30662,22 @@ async function handleIssues() {
     }
     core.info(`handleIssues: action=${action}, issue=#${issue.number}`);
     const tagStore = (0, shared_1.getTagStore)();
+    let isAuthoringAction = false;
     if (action === "opened" || action === "edited") {
+        isAuthoringAction = true;
         await (0, tag_util_1.updateTagStoreByIssue)(tagStore, issue.number, issue.title, issue.body || "");
         await tagStore.commit();
     }
     const tags = await tagStore.getTags(issue.number);
     if ((0, tag_util_1.isNotifiableTags)(tags)) {
-        const watchers = (0, tag_util_1.extractWatchers)(tags);
+        const watchers = (0, tag_util_1.extractTagsByType)(tags, "watcher");
         const notifier = (0, shared_1.getNotifier)(tagStore);
+        const author = (0, tag_util_1.extractTagByType)(tags, "author");
         for (const watcher of watchers) {
+            // Skip notifying the authoring user to avoid redundant notifications.
+            if (isAuthoringAction && watcher === author) {
+                continue;
+            }
             await notifier.notify(watcher, {
                 event: `issue_${action}`,
                 issue: `${issue.title}  (#${issue.number})`,
@@ -30669,11 +30770,15 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const context_1 = __nccwpck_require__(788);
 const issues_1 = __nccwpck_require__(8037);
+const issue_comment_1 = __nccwpck_require__(7250);
 async function run() {
     const ctx = (0, context_1.getContext)();
     switch (ctx.eventName) {
         case "issues":
             await (0, issues_1.handleIssues)();
+            break;
+        case "issue_comment":
+            await (0, issue_comment_1.handleIssueComment)();
             break;
         default:
             core.warning(`Unsupported event: ${ctx.eventName}`);
