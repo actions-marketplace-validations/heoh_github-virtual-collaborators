@@ -1,6 +1,7 @@
 import * as core from "@actions/core";
 import {
-  extractWatchers,
+  extractTagByType,
+  extractTagsByType,
   isNotifiableTags,
   updateTagStoreByIssue,
 } from "../core/tag-util";
@@ -24,7 +25,9 @@ export async function handleIssues(): Promise<void> {
 
   const tagStore = getTagStore();
 
+  let isAuthoringAction = false;
   if (action === "opened" || action === "edited") {
+    isAuthoringAction = true;
     await updateTagStoreByIssue(
       tagStore,
       issue.number,
@@ -36,9 +39,14 @@ export async function handleIssues(): Promise<void> {
 
   const tags = await tagStore.getTags(issue.number);
   if (isNotifiableTags(tags)) {
-    const watchers = extractWatchers(tags);
+    const watchers = extractTagsByType(tags, "watcher");
     const notifier = getNotifier(tagStore);
+    const author = extractTagByType(tags, "author");
     for (const watcher of watchers) {
+      // Skip notifying the authoring user to avoid redundant notifications.
+      if (isAuthoringAction && watcher === author) {
+        continue;
+      }
       await notifier.notify(watcher, {
         event: `issue_${action}`,
         issue: `${issue.title}  (#${issue.number})`,

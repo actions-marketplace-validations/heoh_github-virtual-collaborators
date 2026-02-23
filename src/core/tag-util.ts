@@ -80,12 +80,17 @@ export function isNotifiableTags(tags: string[]): boolean {
   return !tags.includes("system:quiet");
 }
 
-export function extractWatchers(tags: string[]): string[] {
-  const watchers: string[] = [];
+export function extractTagsByType(tags: string[], type: string): string[] {
+  const result: string[] = [];
   for (const tag of tags) {
-    if (tag.startsWith("watcher:")) {
-      watchers.push(tag.substring("watcher:".length));
+    if (tag.startsWith(`${type}:`)) {
+      result.push(tag.substring(`${type}:`.length));
     }
   }
-  return watchers;
+  return result;
+}
+
+export function extractTagByType(tags: string[], type: string): string | null {
+  const result = extractTagsByType(tags, type);
+  return result.length > 0 ? result[0] : null;
 }
