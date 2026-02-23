@@ -1,0 +1,91 @@
+import { TagStore } from "./tag-store";
+
+export async function updateTagStoreByIssue(
+  tagStore: TagStore,
+  issueNumber: number,
+  title: string,
+  body: string,
+): Promise<void> {
+  // Process Headers
+  let author: string | null = null;
+  const headerRegex = /^(?:\s*\n)?######\s+Authored\s+by\s+@#([\w-]+)/;
+  const headerMatch = body.match(headerRegex);
+  if (headerMatch) {
+    author = headerMatch[1];
+    tagStore.removeTypes(issueNumber, ["author"]);
+    tagStore.addTags(issueNumber, [
+      `author:${author}`,
+      `participant:${author}`,
+    ]);
+  }
+
+  // Process Commands
+  const commandRegex = /^\/(\w+)(?:\s.*)?$/gm;
+  let commandMatch;
+  while ((commandMatch = commandRegex.exec(body)) !== null) {
+    const command = commandMatch[1];
+    const args = commandMatch[0].split(" ").slice(1);
+    await processCommand(tagStore, issueNumber, command, args, author);
+  }
+
+  // Process Mentions
+  const mentionRegex = /@#([\w-]+)/g;
+  let mentionMatch;
+  while ((mentionMatch = mentionRegex.exec(body)) !== null) {
+    const mentionedName = mentionMatch[1];
+    tagStore.addTags(issueNumber, [
+      `watcher:${mentionedName}`,
+      `participant:${mentionedName}`,
+    ]);
+  }
+}
+
+async function processCommand(
+  tagStore: TagStore,
+  issueNumber: number,
+  command: string,
+  args: string[],
+  author: string | null,
+): Promise<void> {
+  if (command === "assign") {
+    if (args.length === 1) {
+      const mentionRegex = /^@#([\w-]+)$/;
+      const assigneeMatch = args[0].match(mentionRegex);
+      if (assigneeMatch) {
+        const assignee = assigneeMatch[1];
+        tagStore.removeTypes(issueNumber, ["assignee"]);
+        tagStore.addTags(issueNumber, [
+          `assignee:${assignee}`,
+          `participant:${assignee}`,
+        ]);
+      }
+    }
+  } else if (command === "unassign") {
+    tagStore.removeTypes(issueNumber, ["assignee"]);
+  } else if (command === "watch") {
+    if (author) {
+      tagStore.addTags(issueNumber, [
+        `watcher:${author}`,
+        `participant:${author}`,
+      ]);
+    }
+  } else if (command === "unwatch") {
+    if (author) {
+      tagStore.removeTags(issueNumber, [`watcher:${author}`]);
+    }
+  }
+}
+
+export function isNotifiableTags(tags: string[]): boolean {
+  return !tags.includes("system:quiet");
+}
+
+export function extractWatchers(tags: string[]): string[] {
+  const watchers: string[] = [];
+  for (const tag of tags) {
+    if (tag.startsWith("watcher:")) {
+      watchers.push(tag.substring("watcher:".length));
+    }
+  }
+  return watchers;
+}
