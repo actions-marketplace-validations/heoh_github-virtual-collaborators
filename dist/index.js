@@ -30597,7 +30597,7 @@ async function handleIssueComment() {
                 continue;
             }
             await notifier.notify(watcher, {
-                event: `comment_${action}`,
+                event: `\`issue_${action}\``,
                 issue: `\`#${issue.number}\`  ${issue.title}`,
                 comment_id: comment.id,
             });
@@ -30681,7 +30681,7 @@ async function handleIssues() {
                 continue;
             }
             await notifier.notify(watcher, {
-                event: `issue_${action}`,
+                event: `\`issue_${action}\``,
                 issue: `\`#${issue.number}\`  ${issue.title}`,
             });
         }
