@@ -30713,6 +30713,99 @@ async function handleIssues() {
 
 /***/ }),
 
+/***/ 9998:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.handlePullRequest = handlePullRequest;
+const core = __importStar(__nccwpck_require__(7484));
+const tag_util_1 = __nccwpck_require__(4492);
+const context_1 = __nccwpck_require__(788);
+const shared_1 = __nccwpck_require__(8512);
+async function handlePullRequest() {
+    const ctx = (0, context_1.getContext)();
+    const { action, pull_request: pr } = ctx.payload;
+    if (!action) {
+        core.warning("pull_request: missing action");
+        return;
+    }
+    if (!pr) {
+        core.warning("pull_request: missing pull_request");
+        return;
+    }
+    core.info(`handlePullRequest: action=${action}, pr=#${pr.number}`);
+    const tagStore = (0, shared_1.getTagStore)();
+    let author = null;
+    let mentions = [];
+    if (action === "opened" || action === "edited") {
+        const result = await (0, tag_util_1.updateTagStoreByContent)(tagStore, pr.number, pr.title, pr.body ?? "");
+        author = result.author;
+        mentions = result.mentions;
+        await tagStore.commit();
+    }
+    const tags = await tagStore.getTags(pr.number);
+    if ((0, tag_util_1.isNotifiableTags)(tags)) {
+        const assignee = (0, tag_util_1.extractValueByType)(tags, "assignee");
+        const watchers = (0, tag_util_1.getWatchingVCNames)(tags);
+        const notifier = (0, shared_1.getNotifier)(tagStore);
+        for (const watcher of watchers) {
+            // Skip notifying the authoring user to avoid redundant notifications.
+            if (watcher === author) {
+                continue;
+            }
+            const payload = {};
+            payload["event"] = `\`pr_${action}\``;
+            payload["issue"] = `\`#${pr.number}\`  ${pr.title}`;
+            if (action === "closed" && pr.merged) {
+                payload["event"] = "`pr_merged`";
+            }
+            if (mentions.includes(watcher))
+                payload["mention"] = true;
+            if (watcher === assignee)
+                payload["assignee"] = true;
+            await notifier.notify(watcher, payload);
+        }
+    }
+}
+
+
+/***/ }),
+
 /***/ 8512:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -30795,6 +30888,7 @@ const core = __importStar(__nccwpck_require__(7484));
 const context_1 = __nccwpck_require__(788);
 const issues_1 = __nccwpck_require__(8037);
 const issue_comment_1 = __nccwpck_require__(7250);
+const pull_request_1 = __nccwpck_require__(9998);
 async function run() {
     const ctx = (0, context_1.getContext)();
     switch (ctx.eventName) {
@@ -30803,6 +30897,9 @@ async function run() {
             break;
         case "issue_comment":
             await (0, issue_comment_1.handleIssueComment)();
+            break;
+        case "pull_request":
+            await (0, pull_request_1.handlePullRequest)();
             break;
         default:
             core.warning(`Unsupported event: ${ctx.eventName}`);

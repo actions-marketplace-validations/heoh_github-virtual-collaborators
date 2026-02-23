@@ -2,6 +2,7 @@ import * as core from "@actions/core";
 import { getContext } from "./context";
 import { handleIssues } from "./handlers/issues";
 import { handleIssueComment } from "./handlers/issue-comment";
+import { handlePullRequest } from "./handlers/pull-request";
 
 async function run(): Promise<void> {
   const ctx = getContext();
@@ -12,6 +13,10 @@ async function run(): Promise<void> {
 
     case "issue_comment":
       await handleIssueComment();
+      break;
+
+    case "pull_request":
+      await handlePullRequest();
       break;
 
     default:
