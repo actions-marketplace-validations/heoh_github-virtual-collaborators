@@ -54,7 +54,7 @@ export async function handleIssueComment(): Promise<void> {
         continue;
       }
       await notifier.notify(watcher, {
-        event: `\`issue_${action}\``,
+        event: `\`comment_${action}\``,
         issue: `\`#${issue.number}\`  ${issue.title}`,
         comment_id: comment.id,
       });
