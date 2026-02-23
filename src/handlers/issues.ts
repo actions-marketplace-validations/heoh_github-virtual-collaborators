@@ -48,7 +48,7 @@ export async function handleIssues(): Promise<void> {
       }
       await notifier.notify(watcher, {
         event: `issue_${action}`,
-        issue: `${issue.title}  (#${issue.number})`,
+        issue: `\`#${issue.number}\`  ${issue.title}`,
       });
     }
   }
