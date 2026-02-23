@@ -30035,9 +30035,8 @@ async function updateTagStoreByContent(tagStore, issueNumber, title, body, isCom
     let mentionMatch;
     while ((mentionMatch = mentionRegex.exec(body)) !== null) {
         const mentionedName = mentionMatch[1];
-        tagStore.addTags(issueNumber, [
-            `participant:${mentionedName}`,
-        ]);
+        tagStore.removeTags(issueNumber, [`unwatcher:${mentionedName}`]);
+        tagStore.addTags(issueNumber, [`participant:${mentionedName}`]);
         mentions.push(mentionedName);
     }
     return { author, mentions };
@@ -30049,6 +30048,7 @@ async function processCommand(tagStore, issueNumber, command, args, author) {
             const assigneeMatch = args[0].match(mentionRegex);
             if (assigneeMatch) {
                 const assignee = assigneeMatch[1];
+                tagStore.removeTags(issueNumber, [`unwatcher:${assignee}`]);
                 tagStore.removeTypes(issueNumber, ["assignee"]);
                 tagStore.addTags(issueNumber, [
                     `assignee:${assignee}`,
@@ -30062,6 +30062,7 @@ async function processCommand(tagStore, issueNumber, command, args, author) {
     }
     else if (command === "watch") {
         if (author) {
+            tagStore.removeTags(issueNumber, [`unwatcher:${author}`]);
             tagStore.addTags(issueNumber, [`watcher:${author}`]);
         }
     }

@@ -38,9 +38,8 @@ export async function updateTagStoreByContent(
   let mentionMatch;
   while ((mentionMatch = mentionRegex.exec(body)) !== null) {
     const mentionedName = mentionMatch[1];
-    tagStore.addTags(issueNumber, [
-      `participant:${mentionedName}`,
-    ]);
+    tagStore.removeTags(issueNumber, [`unwatcher:${mentionedName}`]);
+    tagStore.addTags(issueNumber, [`participant:${mentionedName}`]);
     mentions.push(mentionedName);
   }
 
@@ -60,6 +59,7 @@ async function processCommand(
       const assigneeMatch = args[0].match(mentionRegex);
       if (assigneeMatch) {
         const assignee = assigneeMatch[1];
+        tagStore.removeTags(issueNumber, [`unwatcher:${assignee}`]);
         tagStore.removeTypes(issueNumber, ["assignee"]);
         tagStore.addTags(issueNumber, [
           `assignee:${assignee}`,
@@ -71,6 +71,7 @@ async function processCommand(
     tagStore.removeTypes(issueNumber, ["assignee"]);
   } else if (command === "watch") {
     if (author) {
+      tagStore.removeTags(issueNumber, [`unwatcher:${author}`]);
       tagStore.addTags(issueNumber, [`watcher:${author}`]);
     }
   } else if (command === "unwatch") {
