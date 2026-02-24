@@ -25,68 +25,27 @@ It parses issue/PR/comment content, updates VC metadata in GitHub Projects v2 (a
 
 ---
 
-## How It Works
+## Quick Start
 
-1. An Issue/PR/Comment/Check Run event is triggered.
-2. The action parses VC-related syntax (header, commands, mentions).
-3. It reads/writes tags in the metadata storage (GitHub Project v2 item).
-4. It determines who should be notified.
-5. It creates (if needed) and comments on each VC’s notification issue.
+1. Create a **Project v2** and add a text field named `Tags`.
+2. Add a PAT to repository secret: `PROJECT_TOKEN` (scopes: `repo`, `project`).
+3. Add this action to your workflow using `heoh/github-virtual-collaborators@v1`.
+4. Use the full workflow example in [Usage](#usage).
 
----
-
-## VC Syntax
-
-### Header
-
-Use at the top of content:
+Then test in an Issue/PR body:
 
 ```md
 ###### authored by @#alice
-```
-
-### Commands
-
-Use at the beginning of a line:
-
-```md
 /assign @#bob
-/unassign
-/watch
-/unwatch
+Please review this @#carol
 ```
 
-### Mentions
+### Verify It Works (VC quick checks)
 
-Mention a VC anywhere in text:
-
-```md
-Please review this, @#carol
-```
-
----
-
-## Tag Model
-
-Tags are stored as `key:value` pairs in your Project’s text field.
-
-- `author:<vc-name>`
-- `participant:<vc-name>`
-- `assignee:<vc-name>`
-
-> Note: the runtime may also use internal helper tags for watch-state handling.
-
-### Filtering in GitHub Project Views
-
-You can filter items by tag values in the Project view search bar.
-
-- Example filter (items authored by `alice`):
-  - `Tags:"* author:alice *"`
-
-You can apply the same pattern for other tag types, for example:
-
-- `Tags:"* participant:carol *"`
-- `Tags:"* assignee:bob *"`
+- Check assignee items in Project view:
+  - `Tags:"* assignee:bob *"`
+- Find a VC notification inbox issue by title (include closed issues in search):
+  - `is:issue is:closed in:title "[VC:notifications] @#carol"`
 
 ---
 
@@ -147,11 +106,89 @@ jobs:
       - uses: heoh/github-virtual-collaborators@v1
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
-          project-owner: org                              # Edit here
-          project-number: 1                               # Edit here
-          tags-field-name: Tags                           # Edit here
-          # virtual-collaborators: alice, bob, carol      # Optional
+          project-owner: org-or-user    # Replace with your Project owner
+          project-number: 1             # Replace with your Project number
+          tags-field-name: Tags         # Replace with your text field name
+          # virtual-collaborators: alice, bob, carol
 ```
+
+---
+
+## Security & Permissions
+
+- Store tokens only in GitHub Secrets (never hardcode tokens in workflow YAML).
+- Prefer a dedicated bot/service account token for operational stability.
+- Follow least-privilege: grant only the minimum scopes required.
+
+This action updates Projects v2 metadata. In many environments, `GITHUB_TOKEN` is not sufficient for Projects v2 write operations, so a PAT may be required.
+
+### Why not only `GITHUB_TOKEN`?
+
+`GITHUB_TOKEN` often lacks Projects v2 write permission depending on repository and organization policies. If metadata updates fail, switch to a PAT-based secret.
+
+### Permission Troubleshooting
+
+If tag updates or notifications fail, check the following:
+
+1. `PROJECT_TOKEN` exists and is valid (not expired/revoked).
+2. Token scopes include required access (`repo`, `project`).
+3. `project-owner` and `project-number` point to the intended Project v2.
+4. `tags-field-name` exactly matches an existing text field in the target project.
+
+---
+
+## VC Syntax
+
+### Header
+
+Use at the top of content:
+
+```md
+###### authored by @#alice
+```
+
+### Commands
+
+Use at the beginning of a line:
+
+```md
+/assign @#bob
+/unassign
+/watch
+/unwatch
+```
+
+### Mentions
+
+Mention a VC anywhere in text:
+
+```md
+Please review this, @#carol
+```
+
+---
+
+## Tag Model
+
+Tags are stored as `key:value` pairs in your Project’s text field.
+
+- `author:<vc-name>`
+- `participant:<vc-name>`
+- `assignee:<vc-name>`
+
+> Note: the runtime may also use internal helper tags for watch-state handling.
+
+### Filtering in GitHub Project Views
+
+You can filter items by tag values in the Project view search bar.
+
+- Example filter (items authored by `alice`):
+  - `Tags:"* author:alice *"`
+
+You can apply the same pattern for other tag types, for example:
+
+- `Tags:"* participant:carol *"`
+- `Tags:"* assignee:bob *"`
 
 ---
 
@@ -160,8 +197,20 @@ jobs:
 For each VC, the action uses a dedicated issue:
 
 - Title: `[VC:notifications] @#<vc-name>`
+- The inbox issue can be managed as **closed** state. If you cannot find it, search including closed issues.
+  - Example: `is:issue is:closed in:title "[VC:notifications] @#carol"`
 
 When a relevant event occurs, the action posts a comment in that VC’s notification issue.
+
+---
+
+## How It Works
+
+1. An Issue/PR/Comment/Check Run event is triggered.
+2. The action parses VC-related syntax (header, commands, mentions).
+3. It reads/writes tags in the metadata storage (GitHub Project v2 item).
+4. It determines who should be notified.
+5. It creates (if needed) and comments on each VC’s notification issue.
 
 ---
 
