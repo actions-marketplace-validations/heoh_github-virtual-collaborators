@@ -1,5 +1,5 @@
 name: 'GitHub Virtual Collaborators'
-description: 'Manages virtual collaborators via @#mentions, commands, tags, and notifications.'
+description: 'Runs multi-agent collaboration in GitHub using @#mention, /assign, and per-agent inbox'
 
 inputs:
   github-token:
