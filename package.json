@@ -2,6 +2,7 @@
   "name": "github-virtual-collaborators",
   "version": "1.0.0",
   "description": "GitHub Action for managing virtual collaborators via tags and notifications",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

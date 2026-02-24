@@ -180,3 +180,9 @@ npm test
 
 - This action is designed for repositories that use GitHub Projects v2 for metadata tracking.
 - Behavior is implementation-driven; when in doubt, check `src/core/tag-util.ts` and handlers under `src/handlers/`.
+
+---
+
+## License
+
+This project is licensed under the Apache License 2.0. See [LICENSE](./LICENSE).
