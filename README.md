@@ -238,6 +238,10 @@ What it does:
 4. Commits release artifacts (`dist`, `package.json`, `package-lock.json`) to `main`.
 5. Creates `vX.Y.Z` tag and force-updates matching major tag (`vX`) to the same release commit.
 
+After the workflow finishes:
+
+6. Create a GitHub Release manually using the generated `vX.Y.Z` tag (you can use auto-generated notes in the GitHub UI).
+
 ---
 
 ## Development
