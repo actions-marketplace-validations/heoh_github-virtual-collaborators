@@ -75,9 +75,9 @@ jobs:
           git add package.json package-lock.json dist
           if git diff --cached --quiet; then
             echo "No changes to commit."
-            exit 1
+          else
+            git commit -m "chore(release): v${{ inputs.version }}"
           fi
-          git commit -m "chore(release): v${{ inputs.version }}"
 
       - name: Create and update tags
         run: |
