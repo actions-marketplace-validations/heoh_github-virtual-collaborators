@@ -144,7 +144,7 @@ jobs:
   virtual-collaborators:
     runs-on: ubuntu-latest
     steps:
-      - uses: heoh/github-virtual-collaborators@main
+      - uses: heoh/github-virtual-collaborators@v1
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           project-owner: org                              # Edit here
