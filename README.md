@@ -27,10 +27,41 @@ It parses issue/PR/comment content, updates VC metadata in GitHub Projects v2 (a
 
 ## Quick Start
 
-1. Create a **Project v2** and add a text field named `Tags`.
-2. Add a PAT to repository secret: `PROJECT_TOKEN` (scopes: `repo`, `project`).
-3. Add this action to your workflow using `heoh/github-virtual-collaborators@v1`.
-4. Use the full workflow example in [Usage](#usage).
+Create `.github/workflows/virtual-collaborators.yml`:
+
+```yaml
+name: Virtual Collaborators
+
+on:
+  issues:
+    types: [opened, edited, closed, reopened]
+  issue_comment:
+    types: [created, edited]
+  pull_request:
+    types: [opened, edited, closed, reopened, synchronize]
+  check_run:
+    types: [completed]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  virtual-collaborators:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: heoh/github-virtual-collaborators@v1
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          project-owner: org-or-user    # Replace with your Project owner
+          project-number: 1             # Replace with your Project number
+          tags-field-name: Tags         # Replace with your text field name
+```
+
+Requirements:
+
+- Create a **Project v2** with a text field named `Tags`.
+- Add a PAT to repository secret `PROJECT_TOKEN` (scopes: `repo`, `project`).
 
 Then test in an Issue/PR body:
 
@@ -80,36 +111,23 @@ Defined in `action.yml`:
 
 ## Usage
 
-Create `.github/workflows/virtual-collaborators.yml`:
+For advanced configuration and behavior details:
+
+- Inputs reference: [Inputs](#inputs)
+- Collaboration syntax: [VC Syntax](#vc-syntax)
+- Metadata model and filtering: [Tag Model](#tag-model)
+- Notification behavior: [Notifications](#notifications)
+
+Optional allow-list example:
 
 ```yaml
-name: Virtual Collaborators
-
-on:
-  issues:
-    types: [opened, edited, closed, reopened]
-  issue_comment:
-    types: [created, edited]
-  pull_request:
-    types: [opened, edited, closed, reopened, synchronize]
-  check_run:
-    types: [completed]
-
-permissions:
-  issues: write
-  contents: read
-
-jobs:
-  virtual-collaborators:
-    runs-on: ubuntu-latest
-    steps:
       - uses: heoh/github-virtual-collaborators@v1
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
-          project-owner: org-or-user    # Replace with your Project owner
-          project-number: 1             # Replace with your Project number
-          tags-field-name: Tags         # Replace with your text field name
-          # virtual-collaborators: alice, bob, carol
+          project-owner: org-or-user
+          project-number: 1
+          tags-field-name: Tags
+          virtual-collaborators: alice, bob, carol
 ```
 
 ---
