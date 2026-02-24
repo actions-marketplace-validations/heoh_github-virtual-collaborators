@@ -4,13 +4,15 @@ import {
   updateTagStoreByContent,
   getWatchingVCNames,
   extractValueByType,
+  isAllowedVC,
 } from "../core/tag-util";
-import { getContext } from "../context";
+import { getContext, getInputs } from "../context";
 import { getTagStore, getNotifier } from "./shared";
 import { NotificationPayload } from "../core/notification-provider";
 
 export async function handleIssueComment(): Promise<void> {
   const ctx = getContext();
+  const inputs = getInputs();
 
   const { action, issue, comment } = ctx.payload;
   if (!action) {
@@ -41,6 +43,7 @@ export async function handleIssueComment(): Promise<void> {
       "",
       comment.body ?? "",
       true,
+      inputs.virtualCollaborators,
     );
     author = result.author;
     mentions = result.mentions;
@@ -50,7 +53,9 @@ export async function handleIssueComment(): Promise<void> {
   const tags = await tagStore.getTags(issue.number);
   if (isNotifiableTags(tags)) {
     const assignee = extractValueByType(tags, "assignee");
-    const watchers = getWatchingVCNames(tags);
+    const watchers = getWatchingVCNames(tags).filter((vc) =>
+      isAllowedVC(vc, inputs.virtualCollaborators),
+    );
     const notifier = getNotifier(tagStore);
     for (const watcher of watchers) {
       // Skip notifying the authoring user to avoid redundant notifications.
@@ -59,9 +64,9 @@ export async function handleIssueComment(): Promise<void> {
       }
 
       const payload: NotificationPayload = {};
-      payload['event'] = `\`comment_${action}\``;
-      payload['issue'] = `\`#${issue.number}\`  ${issue.title}`;
-      payload['comment_id'] = comment.id;
+      payload["event"] = `\`comment_${action}\``;
+      payload["issue"] = `\`#${issue.number}\`  ${issue.title}`;
+      payload["comment_id"] = comment.id;
       if (mentions.includes(watcher)) payload["mention"] = true;
       if (watcher === assignee) payload["assignee"] = true;
       await notifier.notify(watcher, payload);
