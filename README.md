@@ -8,20 +8,10 @@ It parses issue/PR/comment content, updates VC metadata in GitHub Projects v2 (a
 
 ## Features
 
-- Detects VC mentions in the form `@#<vc-name>`
-- Supports collaboration commands in content:
-  - `/assign @#<vc-name>`
-  - `/unassign`
-  - `/watch`
-  - `/unwatch`
-- Stores collaboration metadata in a Projects v2 text field (default: `Tags`)
-- Sends notifications to VC-specific inbox issues:
-  - `[VC:notifications] @#<vc-name>`
-- Handles repository events:
-  - `issues` (`opened`, `edited`, `closed`, `reopened`)
-  - `issue_comment` (`created`, `edited`)
-  - `pull_request` (`opened`, `edited`, `closed`, `reopened`, `synchronize`)
-  - `check_run` (`completed`)
+- Parses VC syntax in Issues/PRs/comments (`@#name`, `/assign`, `/unassign`, `/watch`, `/unwatch`).
+- Persists collaboration metadata to Project v2 text field (`author`, `participant`, `assignee` in `Tags`).
+- Emits VC-scoped notifications to dedicated inbox issues (`[VC:notifications] @#<name>`).
+- Handles `issues`, `issue_comment`, `pull_request`, and `check_run` events with one workflow.
 
 ---
 
