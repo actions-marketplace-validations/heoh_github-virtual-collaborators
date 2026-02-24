@@ -222,6 +222,24 @@ When a relevant event occurs, the action posts a comment in that VC’s notifica
 
 ---
 
+## Release (Maintainers)
+
+This repository includes a manual release workflow:
+
+- Workflow: `.github/workflows/release.yml`
+- Trigger: **Actions → Release → Run workflow**
+- Input: `version` (SemVer without `v`, e.g., `1.2.3`)
+
+What it does:
+
+1. Validates input and ensures the run is on `main`.
+2. Updates `package.json`/`package-lock.json` version.
+3. Runs lint, test, and build.
+4. Commits release artifacts (`dist`, `package.json`, `package-lock.json`) to `main`.
+5. Creates `vX.Y.Z` tag and force-updates matching major tag (`vX`) to the same release commit.
+
+---
+
 ## Development
 
 ```bash

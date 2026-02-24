@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SemVer version without 'v' prefix (e.g., 1.2.3)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure main branch
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "main" ]; then
+            echo "Release workflow must run from main branch."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate version input
+        run: |
+          VERSION="${{ inputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version: $VERSION"
+            exit 1
+          fi
+
+      - name: Update package version
+        run: npm version "${{ inputs.version }}" --no-git-tag-version
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit release artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json dist
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 1
+          fi
+          git commit -m "chore(release): v${{ inputs.version }}"
+
+      - name: Create and update tags
+        run: |
+          VERSION_TAG="v${{ inputs.version }}"
+          MAJOR_TAG="v$(echo "${{ inputs.version }}" | cut -d. -f1)"
+          git tag "$VERSION_TAG"
+          git tag -f "$MAJOR_TAG"
+
+      - name: Push commit and tags
+        run: |
+          MAJOR_TAG="v$(echo "${{ inputs.version }}" | cut -d. -f1)"
+          git push origin HEAD:main
+          git push origin "v${{ inputs.version }}"
+          git push origin "$MAJOR_TAG" --force
