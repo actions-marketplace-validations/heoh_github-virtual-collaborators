@@ -1,4 +1,5 @@
 import type { TagStore } from "./tag-store.js";
+import { maskNonActionableMarkdown } from "./markdown-mask.js";
 
 export function isAllowedVC(vcName: string, allowList?: Set<string>): boolean {
   if (!allowList) {
@@ -15,10 +16,13 @@ export async function updateTagStoreByContent(
   isComment = false,
   allowList?: Set<string>,
 ): Promise<{ author: string | null; mentions: string[] }> {
+  const maskedTitle = maskNonActionableMarkdown(title);
+  const maskedBody = maskNonActionableMarkdown(body);
+
   // Process Headers
   let author: string | null = null;
   const headerRegex = /^(?:\s*\n)?######\s+authored\s+by\s+@#([\w-]+)/i;
-  const headerMatch = body.match(headerRegex);
+  const headerMatch = maskedBody.match(headerRegex);
   if (headerMatch && isAllowedVC(headerMatch[1], allowList)) {
     author = headerMatch[1];
     if (!isComment) {
@@ -34,7 +38,7 @@ export async function updateTagStoreByContent(
   // Process Commands
   const commandRegex = /^\/(\w+)(?:\s.*)?$/gm;
   let commandMatch;
-  while ((commandMatch = commandRegex.exec(body)) !== null) {
+  while ((commandMatch = commandRegex.exec(maskedBody)) !== null) {
     const command = commandMatch[1];
     const args = commandMatch[0].split(" ").slice(1);
     await processCommand(
@@ -48,20 +52,40 @@ export async function updateTagStoreByContent(
   }
 
   // Process Mentions
-  let mentions: string[] = [];
+  const mentionSource = buildMentionSource(maskedTitle, maskedBody);
+  const mentionSet = new Set<string>();
   const mentionRegex = /@#([\w-]+)/g;
   let mentionMatch;
-  while ((mentionMatch = mentionRegex.exec(body)) !== null) {
+  while ((mentionMatch = mentionRegex.exec(mentionSource)) !== null) {
     const mentionedName = mentionMatch[1];
     if (!isAllowedVC(mentionedName, allowList)) {
       continue;
     }
     tagStore.removeTags(issueNumber, [`unwatcher:${mentionedName}`]);
     tagStore.addTags(issueNumber, [`participant:${mentionedName}`]);
-    mentions.push(mentionedName);
+    mentionSet.add(mentionedName);
   }
 
+  const mentions = Array.from(mentionSet);
+
   return { author, mentions };
+}
+
+function buildMentionSource(maskedTitle: string, maskedBody: string): string {
+  const bodyLines = maskedBody.split(/\r?\n/);
+  const mentionLines = bodyLines.filter(
+    (line) => !isHeaderLine(line) && !isCommandLine(line),
+  );
+
+  return `${maskedTitle}\n${mentionLines.join("\n")}`;
+}
+
+function isHeaderLine(line: string): boolean {
+  return /^\s*######\s+authored\s+by\s+@#[\w-]+\s*$/i.test(line);
+}
+
+function isCommandLine(line: string): boolean {
+  return /^\s*\/\w+(?:\s+.*)?$/.test(line);
 }
 
 async function processCommand(
