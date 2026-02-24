@@ -1,8 +1,5 @@
 name: 'GitHub Virtual Collaborators'
-description: >
-  Manages virtual collaborators (VC) in a GitHub repository.
-  Detects @#name mentions and commands in issues/PRs/comments,
-  updates Project Tags metadata, and sends notifications via dedicated Issues.
+description: 'Manages virtual collaborators via @#mentions, commands, tags, and notifications.'
 
 inputs:
   github-token:
