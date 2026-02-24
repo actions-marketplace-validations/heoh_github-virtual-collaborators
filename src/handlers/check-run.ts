@@ -1,16 +1,18 @@
 import * as core from "@actions/core";
-import { getContext, getOctokit } from "../context";
+import { getContext, getInputs, getOctokit } from "../context";
 import { getPRNumberForCheckRun } from "../github/client";
 import { getNotifier, getTagStore } from "./shared";
 import {
   extractValueByType,
   getWatchingVCNames,
+  isAllowedVC,
   isNotifiableTags,
 } from "../core/tag-util";
 import { NotificationPayload } from "../core/notification-provider";
 
 export async function handleCheckRun(): Promise<void> {
   const ctx = getContext();
+  const inputs = getInputs();
   const octokit = getOctokit();
 
   const { action, check_run: checkRun } = ctx.payload;
@@ -62,7 +64,9 @@ export async function handleCheckRun(): Promise<void> {
   }
 
   const assignee = extractValueByType(tags, "assignee");
-  const watchers = getWatchingVCNames(tags);
+  const watchers = getWatchingVCNames(tags).filter((vc) =>
+    isAllowedVC(vc, inputs.virtualCollaborators),
+  );
   if (watchers.length === 0) {
     core.info("handleCheckRun: no watchers, skipping notification");
     return;

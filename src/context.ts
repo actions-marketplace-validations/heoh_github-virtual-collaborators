@@ -12,9 +12,19 @@ export function getInputs() {
   const tagsFieldName = core.getInput("tags-field-name", { required: true });
   const vcListRaw = core.getInput("virtual-collaborators", { required: false });
 
-  const virtualCollaborators = vcListRaw
-    ? vcListRaw.split(",").map((s) => s.trim())
-    : undefined;
+  const normalizedVCs = vcListRaw
+    ? Array.from(
+        new Set(
+          vcListRaw
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0),
+        ),
+      )
+    : [];
+
+  const virtualCollaborators =
+    normalizedVCs.length > 0 ? new Set(normalizedVCs) : undefined;
 
   return {
     githubToken,

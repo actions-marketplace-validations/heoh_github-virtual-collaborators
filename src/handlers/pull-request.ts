@@ -4,13 +4,15 @@ import {
   updateTagStoreByContent,
   getWatchingVCNames,
   extractValueByType,
+  isAllowedVC,
 } from "../core/tag-util";
-import { getContext } from "../context";
+import { getContext, getInputs } from "../context";
 import { getTagStore, getNotifier } from "./shared";
 import { NotificationPayload } from "../core/notification-provider";
 
 export async function handlePullRequest(): Promise<void> {
   const ctx = getContext();
+  const inputs = getInputs();
 
   const { action, pull_request: pr } = ctx.payload;
   if (!action) {
@@ -34,6 +36,8 @@ export async function handlePullRequest(): Promise<void> {
       pr.number,
       pr.title,
       pr.body ?? "",
+      false,
+      inputs.virtualCollaborators,
     );
     author = result.author;
     mentions = result.mentions;
@@ -43,7 +47,9 @@ export async function handlePullRequest(): Promise<void> {
   const tags = await tagStore.getTags(pr.number);
   if (isNotifiableTags(tags)) {
     const assignee = extractValueByType(tags, "assignee");
-    const watchers = getWatchingVCNames(tags);
+    const watchers = getWatchingVCNames(tags).filter((vc) =>
+      isAllowedVC(vc, inputs.virtualCollaborators),
+    );
     const notifier = getNotifier(tagStore);
     for (const watcher of watchers) {
       // Skip notifying the authoring user to avoid redundant notifications.
