@@ -56,4 +56,4 @@ runs:
 
 branding:
   icon: 'users'
-  color: 'blue'
+  color: 'gray-dark'
